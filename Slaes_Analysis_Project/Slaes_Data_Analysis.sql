@@ -33,6 +33,7 @@ bulk insert inventory
 from 'C:\Users\Admin\Favorites\Downloads\inventory.csv'
 with(fieldterminator=',',rowterminator='\n',firstrow=2,maxerrors=40)
 
+---------    DATA CLEANING AND PREPROCESSING    ------------------------
 
 select column_name,data_type
 from information_schema.COLUMNS
@@ -61,7 +62,7 @@ alter table sales
 alter column sales_id int 
   
 alter table sales
-alter column dates date ---problem
+alter column dates date --issue
 
 alter table sales
 alter column store_id int
@@ -170,29 +171,48 @@ select
 *from dupli
 where rownumber>1
 
-select MIN(dates),MAX(dates) from sales
+-------- EXPLORATORY DATA ANALYSIS -----------------
+
+---SALES PERFORMANCE EVALUATION
+
+select MIN(dates),MAX(dates) from sales ---SALES PERIOD
 
 select year(dates),sum(units)
 from sales
-group by year(dates)
+group by year(dates) ----in the year 2022 we sold many number of products
 
 select DATENAME(month,dates) as months , SUM(units) as noofsales
 from sales
 group by DATENAME(month,dates)
 order by SUM(units) desc
 
-select   DATENAME(month,dates) as months,DATENAME(YEAR,dates) as years, SUM(units) as noofsales
+select DATENAME(month,dates) as months , SUM(units) as noofsales ,p.product_category
+from sales , product as p
+where FORMAT(dates,'yyyy') = 2022
+group by DATENAME(month,dates),p.product_category
+order by SUM(units) desc ----- trends near to yearend
+
+select DATENAME(month,dates) as months , SUM(units) as noofsales ,p.product_category
+from sales , product as p
+where FORMAT(dates,'yyyy') = 2023
+group by DATENAME(month,dates),p.product_category
+order by SUM(units) desc     -----------  peak at march 
+---------NO SEASONALITY
+
+select   DATENAME(WEEKDAY,dates) as months,DATENAME(YEAR,dates) as years, SUM(units) as noofsales
 from sales
-where FORMAT(dates,'yyyy') in (2022,2023)
-group by DATENAME(month,dates),DATENAME(YEAR,dates)
+where FORMAT(dates,'yyyy') = 2022
+group by DATENAME(WEEKDAY,dates),DATENAME(YEAR,dates)
 order by SUM(units) desc
 
 select   DATENAME(WEEKDAY,dates) as months,DATENAME(YEAR,dates) as years, SUM(units) as noofsales
 from sales
-where FORMAT(dates,'yyyy') in (2022,2023)
+where FORMAT(dates,'yyyy') = 2023
 group by DATENAME(WEEKDAY,dates),DATENAME(YEAR,dates)
 order by SUM(units) desc
+---------  SEASONALITY based on weekday (FRIDAY SATURDAY we have highest sales)
 
+---COMPARISION  SALES PERFORMANCE OVER THE TIME
 With sale As (select datename(month,dates) as 'months', sum(case when year(dates)='2022' then units else 0 end ) as 'salesof2022' ,
            sum(case when year(dates)='2023' then units else 0 end) as 'salesof2023',
            (sum(case when year(dates)='2023' then units else 0 end))-(sum(case when year(dates)='2022' then units else 0 end)) as 'diffofsales'
@@ -200,34 +220,35 @@ With sale As (select datename(month,dates) as 'months', sum(case when year(dates
 group by datename(MONTH,dates))
 select *,round(cast((100*diffofsales/salesof2022)as float),2) as percentagediffage,
 case when diffofsales<0 then 'DICLINE'
-     when diffofsales>0 then 'incline'
+     when diffofsales>0 
+	 then 'incline'
 	 else ''
 	 end as 'statusofdiff'
 from sale
+--------SALES INCREASES OVER THE year 
 
----Store performance 
-
-select st.store_location,sum(s.units) as 'totalsales' from 
-sales s
-join 
-store st on s.store_id=st.store_id
-group by st.store_location
-order by SUM(s.units) desc
+------ STORE PERFORMANCE --------------------
 
 select  top 5 st.store_city , sum(s.units)
 from sales s
 join 
 store st on st.store_id=s.store_id
 group by st.store_city
-order by SUM(s.units) desc
+order by SUM(s.units) desc 
 
+select st.store_location,sum(s.units) as 'totalsales' from 
+sales s
+join 
+store st on s.store_id=st.store_id
+group by st.store_location
+order by SUM(s.units) desc ---highest at downtown 
 
 select   st.store_location, count(st.store_id) as 'no_of_stores'
 from
 store st 
 group by st.store_location
 order by COUNT(st.store_id) desc
-
+-------------  more no of STORES more SALES
 
 select   st.store_city , sum(s.units) as 'noofsales'
 from sales s
@@ -249,7 +270,7 @@ group by s.store_id,s.store_name
 order by SUM(i.stock_on_hand) desc
 
 
--------------Product analysis
+--------- PRODUCT PERFORMANCE -----------------
 
 select  product_category,product_name,sum(product_price) as 'price' ,sum(product_cost) as 'cost'
 from product
@@ -257,10 +278,11 @@ group by product_category,product_name
 order by SUM(product_price) desc
 
 
---- Top selling product in each category
+
 select* from sales
 select * from product 
 
+---- TOP PERFORMING PRODUCTS
 With Product_perf as (select p.product_category,p.product_name ,sum(s.units) as 'totalunits',ROW_NUMBER() over(partition by p.product_category order by (sum(units)) desc) as rownum
 from product p 
 join sales s on s.product_id=p.product_id
@@ -268,9 +290,25 @@ group by p.product_category,p.product_name
 )
 
 select * from Product_perf
-where rownum=1
+where rownum=1  ---------------PlayDoh Can,Colorbuds,Deck Of Cards,Dart Gun,Dino Egg
 
+-----LEAST PERFORMING PRODUCTS
+With Product_perf as (select p.product_category,p.product_name ,sum(s.units) as 'totalunits',ROW_NUMBER() over(partition by p.product_category order by (sum(units)) desc) as rownum
+from product p 
+join sales s on s.product_id=p.product_id
+group by p.product_category,p.product_name
+),
+MaxRowNum AS (SELECT product_category, MAX(rownum) AS max_rownum FROM Product_perf
+    GROUP BY product_category
+)
 
+SELECT pp.product_category, pp.product_name, pp.totalunits
+FROM  Product_perf pp
+JOIN MaxRowNum mrn ON pp.product_category = mrn.product_category AND pp.rownum = mrn.max_rownum
+ORDER BY pp.product_category
+----Playfoam,Toy Robot,Uno Card Game,Mini Basketball Hoop,Plush Pony
+
+---- REVENUE MARGIN
 select p.product_category,sum(s.units * p.product_price) as 'revenue'  from sales s 
 join product p on s.product_id=p.product_id
 group by p.product_category
@@ -292,12 +330,25 @@ group by s.store_location)
 select *,(revenues*100)/14444572.35 as '%revenue' from revenue
 order by revenues desc
 
-select p.product_id, p.product_name, sum(s.units) as 'totalsale',
+------ PROFIT MARGIN
+with l as (select p.product_id, p.product_name,p.product_price,p.product_cost ,p.product_category,sum(s.units) as 'totalsale',
 sum(s.units * p.product_price) as 'revenue',sum(s.units * (p.product_price-p.product_cost)) as 'profit'
 from product p
 join sales s on s.product_id=p.product_id
-group by p.product_id,p.product_name
-order by profit desc
+group by p.product_id,p.product_name,p.product_price,p.product_cost,p.product_category
+--order by profit desc
+)
+
+select * from l
+where profit<0
+order by profit desc  -------------21 products are under loss out of 35 almost 60% of product are at loss because of cost is higher then price
+----This is the resaon we have financial issue and lossing market position
+
+/*
+Cost Reduction Strategies
+Supply Chain Optimization: Review suppliers and procurement strategies to find more cost-effective solutions for producing or sourcing products.
+Lean Practices: Implement lean manufacturing principles to reduce waste and lower costs in production.
+*/
 
 select * from product 
 with loc as (select s.store_location,s.store_city, sum(p.product_price * sl.units )  as 'revenue' , SUM(sl.units *(p.product_price-p.product_cost)) as 'Profit',
@@ -312,6 +363,15 @@ select  *,round(cast(((100*profit)/4014029.00)as float) ,2) as '%profit'from loc
 where row_no =1
 order by profit desc
 
+/*here we can found in airport region items are high at cost because of 
+      Many airport vendors offer promotions or discounts to entice travelers who may be in a hurry or making impulse purchases.
+	  Airports often have numerous retailers, restaurants, and service providers competing for travelers, leading to competitive pricing to attract customers.
+
+Recommendation:
+Introduce exclusive products or services that cannot be found elsewhere. This can justify higher prices and attract customers looking for something special.
+Implement loyalty programs that reward frequent travelers, encouraging repeat business and fostering customer loyalty.
+*/
+
 with prod as (select p.product_category,p.product_name, sum(p.product_price * s.units )  as 'revenue' , SUM(s.units *(p.product_price-p.product_cost)) as 'Profit',
 ROW_NUMBER()over(partition by(p.product_category) order by(SUM(s.units *(p.product_price-p.product_cost)))desc ) as 'row_no'
 from sales s
@@ -322,33 +382,16 @@ group by p.product_category,p.product_name)
 select  *,round(cast(((100*profit)/4014029.00)as float) ,2) as '%profit'from prod
 where row_no =1
 order by profit desc
+/*  we have lowest profit when it comes to Art&craft and games section so 
+       we can Conduct a cost analysis to identify opportunities for price adjustments without significantly affecting demand.
+*/
 
 select dateadd(month,-6,max(dates))from sales ---2023-03-30
 select MAX(dates) from sales --2023-09-30
 
+
+
 ---LAST 6 MONTHS ANALYSIS
-
-with last6mon as (select s.dates,st.store_location,st.store_city,p.product_category,p.product_name,
-SUM(s.units) as 'Total_units',SUM(p.product_price*s.units) 'Total_Sales',SUM((p.product_price-p.product_cost)*s.units) 'Profit'
-from store st join sales s  on st.store_id=s.store_id join product p on p.product_id=s.product_id
-where s.dates between DATEADD(MONTH,-6, (select max(dates) from sales )) and (select MAX(dates) from sales)
-group by s.dates,st.store_location,st.store_city,p.product_category,p.product_name)
---order by SUM((p.product_price-p.product_cost)*s.units) desc
-
-select ((sum(profit))*100)/4014029.00 as '6monprofit%',SUM(Total_Sales)  '6monsales'from last6mon
-
-----2022 6mon analysis
---select dates from sales
---where DATENAME(year ,dates)=2022
-
-with last6mon as (select  s.dates,st.store_location,st.store_city,p.product_category,p.product_name,
-SUM(s.units) as 'Total_units',SUM(p.product_price*s.units) 'Total_Sales',SUM((p.product_price-p.product_cost)*s.units) 'Profit'
-from store st join sales s  on st.store_id=s.store_id join product p on p.product_id=s.product_id
-where s.dates between DATEADD(MONTH,-6, '2022-12-31') and '2022-12-31'
-group by s.dates,st.store_location,st.store_city,p.product_category,p.product_name)
----order by SUM((p.product_price-p.product_cost)*s.units) desc
-
-select ((sum(profit))*100)/4014029.00 as '6monprofit%',SUM(Total_Sales) as '6monsales'from last6mon
 
 
 -----------------------REPORT-------------------
@@ -374,6 +417,7 @@ where dates between DATEADD(MONTH,-6, '2022-12-31') and '2022-12-31'
 select((sum(Profit))*100)/4014029.00 as '2022SIXmonprofit%'  from Previous6mon 
 
 
+--- COMPLETE SALES MONTH WISE REPORTING --------
 with compsales as(select month(s.dates) as months,year(s.dates) as 'years',SUM(s.units) as 'Total_units',SUM(p.product_price*s.units) 'Total_Sales',
 SUM((p.product_price-p.product_cost)*s.units) 'Profit'
 from store st join sales s  on st.store_id=s.store_id join product p on p.product_id=s.product_id
@@ -388,7 +432,7 @@ where years='2023')
 select p.months,p.years,p.total_units,p.total_sales,p.profit,p.percprofit,r.years,r.total_units,r.total_sales,r.profit,r.percprofit
 from privyear p left join recentyear  r on r.months=p.months
 
-
+--- QUARTILE WISE SALES REPORT ----------------------
 With Comp_sales as( select p.Product_category ,YEAR(s.dates) as 'year/s', DATEPART(quarter,s.dates) as 'quarterlys' , SUM(s.units) as 'total_no_sold'
 from sales s
 join product p on s.Product_ID=p.Product_ID
@@ -409,6 +453,7 @@ from Current_sales c
 join Prev_sales p
 on c.Product_category = p.Product_category
 and c.quarterlys=p.quarterlys
+----------- TOYS and Art&Craft are in profit 
 
 --Inventory turnover ratio between 2022 and 2023(leaf1,4 method in finance)
 
@@ -439,8 +484,8 @@ With sales_category as(
   join avg_inventory ai
   on sc.Product_Name =ai.Product_Name
 
+  ---top over stock items are uno Card game from though out the year trhis can be avoid by doing Demand forecasting
  --Inventory turnover ratio cogs/avg_inv 
-
 
  -------stockout analysis
 
@@ -449,12 +494,13 @@ select * from product
 select * from store
 select * from inventory
 
-select p.product_name,s.store_name,i.stock_on_hand from product p
+select p.product_id, p.product_name,s.store_name,i.stock_on_hand from product p
 join inventory i on p.product_id = i.product_id
 join store s  on  s.store_id=i.store_id
 where i.stock_on_hand = 0
+order by product_id
 
-with t as (select  distinct p.product_name from product p
+with t as (select  distinct p.product_id, p.product_name from product p
 join inventory i on p.product_id = i.product_id
 join store s  on  s.store_id=i.store_id
 where i.stock_on_hand = 0)
@@ -462,7 +508,7 @@ where i.stock_on_hand = 0)
 
  select (cast((select COUNT(distinct(product_name)) from t)as float) /cast((select COUNT(distinct(product_name)) from product)as float) )* 100 as ratio 
 
- ---57% of stockout product
+ --- 57% of stockout product
 
 select  distinct p.product_name from product p
 join inventory i on p.product_id = i.product_id
@@ -474,4 +520,7 @@ where i.stock_on_hand = 0
  group by p.product_name
  order by sum(s.units) desc
 
- ---even top 20 high demand product also out of stock
+ ----because of this we facing churn and lost of revenue
+ --- on demand product are  out of stock
+ --recommendatio :Set an automated reorder point (ROP) that triggers a new purchase order when inventory falls to a predetermined level.
+ 
