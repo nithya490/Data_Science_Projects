@@ -1,0 +1,699 @@
+use Finance
+
+select * from security_master_5000
+where maturity_date is null
+
+
+SELECT 
+    COLUMN_NAME,
+    DATA_TYPE,
+    CHARACTER_MAXIMUM_LENGTH,
+    IS_NULLABLE
+FROM INFORMATION_SCHEMA.COLUMNS
+WHERE TABLE_NAME ='security_master_5000';
+
+ALTER TABLE security_master_5000
+DROP CONSTRAINT PK_security_master_5000;
+
+alter table security_master_5000
+alter column isin varchar(12);
+
+
+ALTER TABLE security_master_5000 ALTER COLUMN cusip VARCHAR(9);
+ALTER TABLE security_master_5000 ALTER COLUMN ticker VARCHAR(12);
+ALTER TABLE security_master_5000 ALTER COLUMN issuer_id VARCHAR(10) not null;
+ALTER TABLE security_master_5000 ALTER COLUMN issuer_name VARCHAR(100) not null;
+ALTER TABLE security_master_5000 ALTER COLUMN security_type VARCHAR(20)not null;
+ALTER TABLE security_master_5000 ALTER COLUMN coupon_rate DECIMAL(6,4);
+ALTER TABLE security_master_5000 ALTER COLUMN coupon_frequency TINYINT;
+ALTER TABLE security_master_5000 ALTER COLUMN issue_date DATE not null;
+--ALTER TABLE security_master_5000 ALTER COLUMN maturity_date DATE not null;
+ALTER TABLE security_master_5000 ALTER COLUMN day_count_convention VARCHAR(10);
+ALTER TABLE security_master_5000 ALTER COLUMN par_value DECIMAL(12,2) not null;
+ALTER TABLE security_master_5000 ALTER COLUMN currency CHAR(3) not null;
+
+SELECT COLUMN_NAME, IS_NULLABLE
+FROM INFORMATION_SCHEMA.COLUMNS
+WHERE TABLE_NAME = 'security_master_5000'
+  AND COLUMN_NAME = 'isin';
+
+ALTER TABLE security_master_5000
+ALTER COLUMN isin VARCHAR(12) NOT NULL;
+
+alter table security_master_5000
+add constraint isinkey primary key(isin)
+
+alter table security_master_5000
+add constraint cti unique(cusip)
+
+
+----Price Table ---------------
+
+SELECT 
+    COLUMN_NAME,
+    DATA_TYPE,
+    CHARACTER_MAXIMUM_LENGTH,
+    IS_NULLABLE
+FROM INFORMATION_SCHEMA.COLUMNS
+WHERE TABLE_NAME ='prices_5000';
+
+select * from prices_5000
+
+ALTER TABLE prices_5000 ALTER COLUMN isin VARCHAR(12) not null ;
+ALTER TABLE prices_5000 ALTER COLUMN price_date Date not null;
+ALTER TABLE prices_5000 ALTER COLUMN clean_price decimal(10,4) not null ;
+ALTER TABLE prices_5000 ALTER COLUMN yield decimal(8,5);
+ALTER TABLE prices_5000 ALTER COLUMN dirty_Price decimal(10,4) ;
+ALTER TABLE prices_5000 ALTER COLUMN currency char(3) not null;
+ALTER TABLE prices_5000 ALTER COLUMN price_source varchar(30) not null;
+
+
+--------------Holding Table-----------
+
+SELECT 
+    COLUMN_NAME,
+    DATA_TYPE,
+    CHARACTER_MAXIMUM_LENGTH,
+    IS_NULLABLE
+FROM INFORMATION_SCHEMA.COLUMNS
+WHERE TABLE_NAME ='holdings_5000'
+
+select * from holdings_5000
+ALTER TABLE holdings_5000  ALTER COLUMN portfolio_id varchar(20);
+ALTER TABLE holdings_5000  ALTER COLUMN as_of_date date;
+ALTER TABLE holdings_5000  ALTER COLUMN isin varchar(12);
+ALTER TABLE holdings_5000  ALTER COLUMN quantity int;
+ALTER TABLE holdings_5000  ALTER COLUMN book_cost_per_bond decimal(18,2);
+
+
+---------------Transaction Table-----------------------
+SELECT 
+    COLUMN_NAME,
+    DATA_TYPE,
+    CHARACTER_MAXIMUM_LENGTH,
+    IS_NULLABLE
+FROM INFORMATION_SCHEMA.COLUMNS
+WHERE TABLE_NAME ='transactions_5000'
+
+select * from transactions_5000
+
+ALTER TABLE transactions_5000  ALTER COLUMN trade_id varchar(50) not null;
+ALTER TABLE transactions_5000  ALTER COLUMN portfolio_id varchar(20) not null;
+ALTER TABLE transactions_5000  ALTER COLUMN trade_date date not null;
+ALTER TABLE transactions_5000  ALTER COLUMN settlement_date date not null;
+ALTER TABLE transactions_5000  ALTER COLUMN isin varchar(12) not null;
+ALTER TABLE transactions_5000  ALTER COLUMN quantity int not null;
+ALTER TABLE transactions_5000  ALTER COLUMN trade_price decimal(10,4) not null;
+ALTER TABLE transactions_5000  ALTER COLUMN trade_amount  decimal(18,2) not null ;
+ALTER TABLE transactions_5000  ALTER COLUMN trade_type varchar(10) not null;
+ALTER TABLE transactions_5000  ALTER COLUMN broker_fee decimal(12,2) not null;
+ALTER TABLE transactions_5000  ALTER COLUMN cashflow_type varchar(15)not null;
+
+
+-------------FX-------------------
+SELECT 
+    COLUMN_NAME,
+    DATA_TYPE,
+    CHARACTER_MAXIMUM_LENGTH,
+    IS_NULLABLE
+FROM INFORMATION_SCHEMA.COLUMNS
+WHERE TABLE_NAME = 'fx'
+
+ALTER TABLE fx  ALTER COLUMN date date not null
+ALTER TABLE fx  ALTER COLUMN currency char(3)  not null
+ALTER TABLE fx  ALTER COLUMN usd_rate decimal(12,6)
+
+-----Flaged data-----
+
+alter table security_master_flagged
+add Maturity_Date_val varchar(20)
+
+update security_master_flagged
+set Maturity_Date_val=case when maturity_date is null then 'invalid' else 'valid' end 
+
+select * from security_master_flagged
+
+---------RAW DATA-------------------------------------------------
+SELECT *
+INTO security_master_raw 
+FROM security_master_5000
+
+select* from security_master_raw
+
+delete from security_master_5000
+WHERE maturity_date IS NULL
+
+SELECT *
+FROM security_master_5000
+WHERE maturity_date IS  NULL
+
+ALTER TABLE security_master_5000  ALTER COLUMN maturity_date DATE not null;
+
+---cleaned  security data -------------------------------
+
+use Finance
+SELECT *
+FROM security_master_5000
+WHERE maturity_date is NULL
+
+alter table security_master_5000
+add constraint couponrate check(coupon_rate between 0 and 25)
+
+alter table security_master_5000
+add constraint couponfreq check(coupon_frequency in(1,2,4,12))
+
+alter table security_master_5000
+add constraint maturityd check(maturity_date>issue_date)
+
+alter table security_master_5000
+add constraint parvalue  check(par_value in (100,1000))
+
+alter table security_master_5000
+add constraint securitytype check(security_type IN('BOND','NOTE','TREASURY','CROP'))
+
+alter table security_master_5000
+add constraint daycc check(day_count_convention IN('30/360','ACT/360','ACT/365'))
+
+alter table security_master_5000
+add constraint currncy check(currency IN ('USD','EUR','INR'))
+
+------INDEX------
+create nonclustered index maturtydate on security_master_5000(maturity_date);
+
+--------------------------------------------------------------------------------------------------------------
+
+-----Price-----
+select*from prices_5000
+-------RAW DATA----
+SELECT *
+INTO prices_raw 
+FROM prices_5000
+
+
+-------Flagged Price data----
+SELECT *
+INTO prices_flagged
+FROM prices_5000
+
+alter table prices_flagged
+alter column pricevalidation varchar(20);
+
+select * from prices_flagged
+where validateisin='invalid_user'
+
+update  prices_flagged
+set pricevalidation = 
+case 
+   when dirty_price<clean_price  
+   then 'invalid_price' else 'valid_price' end 
+
+alter table prices_flagged
+add currencyval varchar(20)
+
+
+update p
+set p.currencyval = 
+ case 
+    when p.currency=s.currency then 'valid_cur' else 'invalid_cur' end
+from prices_flagged p
+join security_master_5000 s
+on p.isin=s.isin
+
+alter table prices_flagged
+add validateisin varchar(20)
+
+update prices_flagged
+set validateisin= case when  currencyval is null then 'invalid_user' else 'valid_user' end
+---------------------------------------
+delete  from prices_5000
+where isin='ISIN100001'
+ 
+WITH ranked_prices AS (
+    SELECT *,
+           ROW_NUMBER() OVER (
+               PARTITION BY isin
+               ORDER BY dirty_price DESC
+           ) AS rn
+    FROM prices_5000
+    WHERE isin = 'ISIN100053'
+)
+ delete from ranked_prices
+ where dirty_price<clean_price or rn>1
+
+
+delete from prices_5000
+where isin='ISIN100060'
+
+
+with ranked as(
+ SELECT 
+        p.*,
+        ROW_NUMBER() OVER (
+            PARTITION BY p.isin
+            ORDER BY p.dirty_price DESC
+        ) AS rn
+    FROM prices_5000 p
+    JOIN security_master_5000 s
+      ON p.isin = s.isin
+    WHERE
+        p.dirty_price >= p.clean_price
+        AND p.currency = s.currency
+)
+delete P 
+FROM prices_5000 p
+LEFT JOIN ranked r
+  ON p.isin = r.isin
+ AND p.price_date = r.price_date
+ and p.clean_price = r.clean_price
+ AND p.dirty_price =r.dirty_price 
+ AND p.currency=r.currency
+ AND p.price_source = r.price_source
+JOIN  security_master_5000 s
+  ON p.isin = s.isin
+WHERE
+      p.dirty_price < p.clean_price
+   OR p.currency <> s.currency
+   OR r.rn > 1;
+
+
+with t as (select *
+FROM prices_5000 p
+WHERE NOT EXISTS (
+    SELECT 1
+    FROM security_master_5000 s
+    WHERE s.isin = p.isin
+))
+select * from t inner join security_master_5000 
+on t.isin=security_master_5000.isin
+
+delete p
+FROM prices_5000 p
+WHERE NOT EXISTS (
+    SELECT 1
+    FROM security_master_5000 s
+    WHERE s.isin = p.isin
+)
+--------------------------------
+alter table prices_5000
+add constraint pkprice primary key(isin,currency,price_source)
+
+alter table  prices_5000
+add constraint fk foreign key(isin) references security_master_5000(isin)
+
+alter table  prices_5000 add constraint  clearprice check(clean_price between 1 and 250)
+alter table  prices_5000 add constraint  dirtyvsclean check(dirty_price>clean_price)
+alter table  prices_5000 add constraint  yield check(yield between -5 and 50)
+alter table  prices_5000 add constraint  currency check(currency in('USD','INR','EUR'))
+
+create clustered index ip on prices_5000(isin,price_date DESC)
+create index pdate on prices_5000(price_date)
+
+----------HOLDINGS-----------------------------------------------------------------------------------------
+
+select * from holdings_5000
+where quantity=0
+
+
+select* into holding_raw
+from holdings_5000
+
+-----------hold_flagged_data----------
+select portfolio_id,as_of_date,isin, sum(quantity) as quantity,
+case when sum(quantity)=0 then null else sum(quantity*book_cost_per_bond)/sum(quantity) end as book_cost_per_bond 
+into holdings_flagged
+from holding_raw
+group by portfolio_id,as_of_date,isin
+
+select *from holdings_flagged
+
+
+alter table holdings_flagged
+add quantity_0 varchar(10)
+
+update holdings_flagged
+set quantity_0 = case when quantity=0 then 'yes' else 'no' end
+
+alter table holdings_flagged
+add NegativeBookCost varchar(10)
+
+update holdings_flagged
+set NegativeBookCost = case when book_cost_per_bond<0 then 'yes' else 'no' end
+select * from holdings_flagged
+where book_cost_per_bond<0 
+
+alter table holdings_flagged
+add isin_status varchar(20)
+
+update h
+set isin_status= case when not exists(SELECT 1 FROM security_master_5000 s WHERE s.isin = h.isin) then 'invalid' else 'valid' end
+from holdings_flagged h
+
+alter table holdings_flagged
+add exception_type varchar(20)
+update h
+set exception_type= case when quantity<0 then 'Negative_qty' else 'positive_qty' end
+from holdings_flagged h
+
+alter table holdings_flagged
+add Exception_Reason varchar(30)
+update h
+set Exception_Reason= case when quantity<0 then 'short_position_reviw_required' else 'no_review_required' end
+from holdings_flagged h
+--------------------------------
+select *from holdings_5000
+
+delete from holdings_5000
+where book_cost_per_bond<0 or quantity<0
+
+alter table holdings_5000
+alter column portfolio_id varchar(20) not null
+
+alter table holdings_5000
+alter column as_of_date varchar(20) not null
+
+alter table holdings_5000
+alter column isin varchar(12) not null
+
+drop  table holdings_5000
+
+
+select portfolio_id,as_of_date,isin, sum(quantity) as quantity,
+case when sum(quantity)=0 then null else sum(quantity*book_cost_per_bond)/sum(quantity) end as book_cost_per_bond 
+into holdings_5000
+from holding_raw
+group by portfolio_id,as_of_date,isin
+
+
+alter table holdings_5000
+add constraint HPk primary key(portfolio_id,as_of_date,isin)
+
+
+
+delete h
+FROM holdings_5000 h
+WHERE NOT EXISTS (
+    SELECT 1
+    FROM security_master_5000 s
+    WHERE s.isin = h.isin)
+
+alter table holdings_5000
+add constraint HFk foreign key(isin) references security_master_5000(isin)
+
+
+delete from holdings_5000
+where quantity=0
+alter table holdings_5000
+add constraint Hqty check(quantity>=0 or quantity is not null)
+
+
+delete from holdings_5000
+where book_cost_per_bond < 0
+alter table holdings_5000
+add constraint Hbook_cost check(book_cost_per_bond>0)
+
+create clustered index portfolio_Date on 
+holdings_5000 (portfolio_id, as_of_date)
+
+create nonclustered index isin_index on 
+holdings_5000 (isin)
+
+-------------FX---------
+
+select * from fx
+
+alter table fx
+add constraint fxpk primary key(date,currency)
+
+alter table fx
+add constraint fxrate check(usd_rate>0)
+
+alter table fx
+add constraint fxc check(currency in('INR','EUR','USD'))
+
+create clustered index dateindex on fx(date)
+create nonclustered index currindex on fx(currency)
+
+------------Transaction ----------------------
+
+select * into transactions_raw from transactions_5000
+drop table transactions_5000
+select * into transactions_5000 from transactions_raw
+-----------------Flaged Transaction data------
+select * into transactions_flagged from transactions_5000
+
+select*from transactions_flagged t
+
+alter table transactions_flagged
+add  invalidisin varchar(20)
+
+update  t
+set invalidisin = case when  not exists (select 1 from security_master_5000 s where t.isin=s.isin) then 'Reference_Data_Gap' else 'validisin'end
+from transactions_flagged t
+
+alter table transactions_flagged
+add invalidqty  varchar(20)
+
+alter table transactions_flagged
+add zero_qty  varchar(10)
+
+update  t
+set zero_qty = case when quantity=0 then 'yes' else 'no' end
+from transactions_flagged t
+
+alter table transactions_flagged
+add invalid_settlement  varchar(30)
+
+update  t
+set invalid_settlement = case when settlement_date<trade_date then 'less_than_Tradedate' else 'valid_date' end
+from transactions_flagged t
+
+
+UPDATE t
+SET invalidqty =
+    CASE
+        WHEN (trade_type = 'BUY'  AND quantity < 0)
+          OR (trade_type = 'SELL' AND quantity > 0)
+        THEN 'invalid'
+        ELSE 'valid'
+    END
+FROM transactions_flagged t;
+---------------------------------------------------
+select * from transactions_5000
+
+alter table transactions_5000
+add constraint tpk primary key(trade_id)
+
+select *from transactions_5000 t
+where not exists (select 1 from security_master_5000 s where t.isin=s.isin)
+
+delete  from transactions_5000 
+where not exists (select 1 from security_master_5000 s where transactions_5000.isin=s.isin)
+alter table transactions_5000
+add constraint tfk foreign key(isin) references security_master_5000(isin)
+
+alter table transactions_5000 
+add constraint tradetype check(trade_type in('BUY','SELL','CANCEL','AMEND'))
+
+alter table transactions_5000 
+add constraint cashtype check(cashflow_type in('PRINCIPAL','FEE'))
+
+delete from transactions_5000
+where quantity=0
+
+alter table transactions_5000 
+add constraint qty check(quantity<>0)
+
+alter table transactions_5000 
+add constraint tradeamt check(trade_amount<>0)
+
+alter table transactions_5000 
+add constraint tradeprice  check(trade_price between 1 and 250)
+
+alter table transactions_5000 
+add constraint brokerfree check(broker_fee>0)
+
+delete from transactions_5000
+where settlement_date<trade_date
+alter table transactions_5000 
+add constraint settlementdate check(settlement_date>=trade_date) 
+
+create clustered index pt on transactions_5000(portfolio_id,trade_date)
+create index Tisin on transactions_5000(isin)
+create index settelement on transactions_5000(settlement_date)
+
+delete from transactions_5000
+where trade_type='BUY' and quantity<0
+
+delete from transactions_5000
+where trade_type='SELL' and quantity>0
+
+delete  from transactions_5000
+where trade_type='CANCEL' 
+
+delete  from transactions_5000
+where cashflow_type='FEE'
+
+select * from transactions_5000
+where broker_fee>trade_amount---TRUE
+
+select * from security_master_5000
+select* from prices_5000
+select*from holdings_5000
+select * from fx
+select * from transactions_5000
+
+update fx
+set usd_rate =1.1789
+where currency='EUR'
+
+update fx
+set usd_rate =0.0117
+where currency='INR'
+
+drop view vw_portfolio_valuation
+create view vw_portfolio_valuation As
+select 
+h.portfolio_id,h.as_of_date ,h.quantity ,h.isin,h.book_cost_per_bond,
+s.issuer_name,s.currency as security_currency,s.maturity_date,p.yield,
+s.par_value,p.clean_price,
+h.quantity*(p.clean_price/100.0)*s.par_value as Market_value_local,
+coalesce(f.usd_rate,1.0) as usd_rate,
+h.quantity*(p.clean_price/100.0)*s.par_value*coalesce(f.usd_rate,1.0) as market_value_usd,
+h.quantity*h.book_cost_per_bond as book_value ,
+(h.quantity * h.book_cost_per_bond * COALESCE(f.usd_rate, 1.0)) AS book_value_usd,
+(h.quantity*(p.clean_price/100.0)*s.par_value*coalesce(f.usd_rate,1.0))-(h.quantity * h.book_cost_per_bond * COALESCE(f.usd_rate, 1.0)) as unrealized_pnl
+from holdings_5000 h join security_master_5000 s on h.isin=s.isin join prices_5000 p on h.isin=p.isin and p.price_date=h.as_of_date
+join fx f on h.as_of_date=f.date and f.currency=s.currency
+
+--negative market value validation
+select * from vw_portfolio_valuation
+where market_value_usd<0
+
+select* from vw_portfolio_valuation
+where security_currency<>'USD'
+and usd_rate =1.0
+
+--PORTFOLIO SUMMARY
+create view portfolio_summary as
+select portfolio_id,as_of_date,sum(market_value_usd) as total_market_value,
+sum(book_value_usd) as total_book_value,
+sum(unrealized_pnl) as total_pnl
+from vw_portfolio_valuation
+group by portfolio_id,as_of_date 
+
+---PF3 is the largest portfolio and contributes the most to total firm exposure.
+--It also carries the highest unrealized P&L, so risk and reward are concentrated here.
+--Any market shock will impact PF3 first
+
+---RISK MATRIC EXPOSURE_________
+
+-----ISIN Concentration Risk---------
+SELECT
+    portfolio_id,
+    isin,
+    SUM(market_value_usd) AS isin_market_value,
+    SUM(market_value_usd) 
+      / SUM(SUM(market_value_usd)) OVER (PARTITION BY portfolio_id) * 100
+      AS pct_of_portfolio
+FROM vw_portfolio_valuation
+GROUP BY portfolio_id, isin
+ORDER BY pct_of_portfolio DESC
+-- Portfolio may benefit from diversification across issuers 
+
+----------Unrealized P&L Analysis-----------
+create view vw_unrealized_PandL as
+SELECT
+    portfolio_id,
+    isin,
+    SUM(unrealized_pnl) AS total_unrealized_pnl
+FROM vw_portfolio_valuation
+GROUP BY portfolio_id, isin
+
+
+
+SELECT
+    portfolio_id,
+    isin,
+    SUM(unrealized_pnl) AS total_unrealized_pnl,
+	sum(DATEDIFF(year,as_of_date,maturity_date)) as years_to_maturity
+FROM vw_portfolio_valuation
+GROUP BY portfolio_id, isin
+having sum(DATEDIFF(year,as_of_date,maturity_date)) >4 and SUM(unrealized_pnl)<0 and SUM(unrealized_pnl)<-10000
+ORDER BY total_unrealized_pnl ASC
+----longdates bonds which are in loses(bonds at risks)
+
+
+---------Interest Rate Sensitivity
+create view vw_marturity_exposure as
+SELECT
+    portfolio_id,
+    CASE 
+        WHEN maturity_date <= DATEADD(YEAR,2, as_of_date) THEN 'SHORT'
+        WHEN maturity_date <= DATEADD(YEAR, 7, as_of_date) THEN 'MEDIUM'
+        ELSE 'LONG'
+    END AS maturity_bucket,
+    SUM(market_value_usd) AS exposure
+FROM vw_portfolio_valuation
+GROUP BY portfolio_id,
+         CASE 
+            WHEN maturity_date <= DATEADD(YEAR, 2, as_of_date) THEN 'SHORT'
+            WHEN maturity_date <= DATEADD(YEAR, 7, as_of_date) THEN 'MEDIUM'
+            ELSE 'LONG'
+         END;
+---Portfolio 1 have high volatality towards rate i.e, LONG category
+
+---Yield vs Risk Trade-off-------
+create view vw_yield_exposure as 
+SELECT
+    portfolio_id,
+    isin,
+    yield,
+    market_value_usd
+FROM vw_portfolio_valuation
+--ORDER BY yield DESC;
+----“High-yield securities exist in the portfolio which are distreesed. We must verify if returns compensate for credit and liquidity risk.”
+
+-----------FX Exposure-------
+create view vw_FX_exposure as
+SELECT
+    security_currency,
+    SUM(market_value_usd) AS exposure_usd
+FROM vw_portfolio_valuation
+WHERE security_currency <> 'USD'
+GROUP BY portfolio_id, security_currency
+--order by exposure_usd desc;
+
+--------Issuer Concentration----------
+Create view Issuer_exposure as
+SELECT
+    portfolio_id,
+    issuer_name,
+    SUM(market_value_usd) AS exposure
+FROM vw_portfolio_valuation
+GROUP BY portfolio_id, issuer_name
+--ORDER BY exposure DESC
+---PF3 has significant EUR exposure, making it sensitive to EUR/USD movements.
+--A depreciation of EUR will reduce USD portfolio value even if bond prices remain unchanged
+SELECT
+    portfolio_id,
+    issuer_name,
+    SUM(market_value_usd) AS issuer_value,
+    SUM(market_value_usd) 
+      / SUM(SUM(market_value_usd)) OVER (PARTITION BY portfolio_id) * 100
+      AS issuer_pct
+FROM vw_portfolio_valuation
+GROUP BY portfolio_id, issuer_name
+ORDER BY issuer_pct DESC
+
+create vw_fx_sensitivity as
+SELECT
+    security_currency,
+    SUM(market_value_usd) AS base_value,
+    SUM(market_value_usd * 0.05) AS fx_5pct_impact
+FROM vw_portfolio_valuation
+WHERE security_currency <> 'USD'
+GROUP BY security_currency;
+
+
+
+
